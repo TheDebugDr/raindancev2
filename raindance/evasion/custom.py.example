@@ -1,0 +1,69 @@
+"""Your evasion hooks — OPTIONAL, empty by design.
+
+RainDance ships NO implementation here. This is where your own work attaches.
+Nothing runs until you:
+
+    cp raindance/evasion/custom.py.example raindance/evasion/custom.py
+
+and fill in one or more of the functions below. With the .example suffix this
+file is never imported; the copy is gitignored, so your work stays local.
+
+Every function is OPTIONAL — define only the ones you want; the rest stay no-ops.
+They fire on each evasion-enabled launch, AFTER the built-in stealth/fingerprint/
+proxy work, in the order shown. Full spec: raindance/evasion/INTERFACE.md.
+
+Sync Playwright API throughout. `info` is a live dict carried across the launch:
+    {account_id, headless, user_data_dir, for_harvester,
+     proxy: dict|None, fingerprint: str, stealth: str}
+Add your own keys to pass state between hooks.
+
+Errors here are logged and skipped so a launch survives — UNLESS the Evasion
+page's Strict switch is on, when they abort the launch. Keep hooks fast: they
+run inline, before navigation.
+"""
+from __future__ import annotations
+
+
+# --- transform hooks: mutate the dict in place, or return a replacement ----- #
+
+def configure_context(context_opts: dict, info: dict):
+    """Adjust Playwright context options before the context is created.
+    e.g. context_opts["extra_http_headers"] = {...}; context_opts["geolocation"]=...
+    Return a dict to replace, or None to keep the mutated one."""
+    return None
+
+
+def configure_launch(launch_kwargs: dict, info: dict):
+    """Adjust Chromium launch kwargs before launch.
+    launch_kwargs has: headless, slow_mo, args (list), ignore_default_args, proxy.
+    Return a dict to replace, or None to keep the mutated one."""
+    return None
+
+
+# --- side hooks: act on the live objects, return nothing -------------------- #
+
+def on_context_created(context, info: dict) -> None:
+    """Context exists. e.g. context.add_init_script(...), context.add_cookies(...),
+    context.route(...). Runs after the built-in stealth."""
+    pass
+
+
+def on_page_created(page, info: dict) -> None:
+    """First page exists. e.g. page.add_init_script(...), event handlers."""
+    pass
+
+
+def apply(context, page, info: dict) -> None:
+    """Catch-all, runs last. Anything not worth its own hook."""
+    pass
+
+
+# You can ALSO register a stateful plugin object instead of / alongside these:
+#
+#     from raindance.evasion.browser_factory import register
+#
+#     @register
+#     class MyEvasion:
+#         def on_context_created(self, context, info): ...
+#
+# A plugin may implement any subset of the same hook names.

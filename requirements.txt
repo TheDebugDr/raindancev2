@@ -1,0 +1,12 @@
+# Backend automation
+playwright>=1.45
+playwright-stealth>=1.0.0
+
+# Desktop GUI
+nicegui>=1.4
+
+# Native desktop window. app.py defaults to native mode, and NiceGUI exits with
+# code 1 if this is missing - so `pip install -r requirements.txt && python app.py`
+# needs it. It pulls pyobjc, which wants Python 3.11+ (the 3.9 wheel can fail to
+# build). On an older Python, drop this line and run `python app.py --web`.
+pywebview>=4.4

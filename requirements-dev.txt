@@ -1,0 +1,5 @@
+# Dev/test dependencies. The suite has always existed but pytest was declared
+# nowhere, so `pip install -r requirements.txt && pytest` failed on a clean box.
+-r requirements.txt
+
+pytest>=7.0

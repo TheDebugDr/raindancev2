@@ -1,0 +1,37 @@
+# secrets & local config
+.env
+config.json
+proxies.txt
+proxies_*.txt
+
+# runtime output
+screenshots/
+data/screenshots/
+data/profiles/
+data/browser_profiles/
+
+# persistent browser login profile (contains your session — never commit)
+profile/
+profiles/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# your local evasion hook (kept out of the repo on purpose)
+raindance/evasion/custom.py
+
+# hand-rolled backups & archives. These hold copies of data/profiles/*.json —
+# i.e. real card + address data — inside gzip streams, where plaintext secret
+# scanning never finds them. Ignore the directories, not just the payloads.
+_to_delete/
+_backup_*/
+_dropin/
+*.tar.gz
+*.tgz
+
+# macOS / tooling noise
+.DS_Store
+.pytest_cache/

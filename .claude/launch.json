@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "raindance",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["serve.py"],
+      "port": 8213,
+      "autoPort": true
+    }
+  ]
+}

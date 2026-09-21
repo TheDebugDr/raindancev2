@@ -1,0 +1,26 @@
+# One proxy per line. Lines starting with # are ignored.
+# Copy to proxies.txt and fill in. proxies.txt is gitignored.
+#
+# Formats:
+#   host:port
+#   host:port:username:password
+#   http://host:port
+#   http://user:pass@host:port
+#   socks5://host:port
+#
+# Example (replace with your own):
+# 1.2.3.4:8080
+# 1.2.3.4:8080:myuser:mypass
+# http://user:pass@proxy.example.com:8000
+#
+# Residential rotating providers (single gateway, exit IP chosen by a session
+# token embedded in the USERNAME). Put the literal {session} placeholder where
+# your provider wants the session id -- it is auto-filled with a stable
+# per-account token so each account keeps ONE sticky exit IP through checkout,
+# and is rolled to a fresh IP when a proxy is marked bad. Toggle with
+# evasion.sticky_session (default true).
+#
+#   Smartproxy/Decodo: http://user-session-{session}:PASS@gate.smartproxy.com:7000
+#   Bright Data:       http://brd-customer-XXX-zone-YYY-session-{session}:PASS@brd.superproxy.io:22225
+#   Oxylabs:           http://customer-USER-sessid-{session}-sesstime-10:PASS@pr.oxylabs.io:7777
+#   IPRoyal:           http://USER_session-{session}_lifetime-10m:PASS@geo.iproyal.com:12321

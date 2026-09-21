@@ -1,0 +1,85 @@
+{
+  "product": {
+    "name": "Limited Edition Thing",
+    "url": "https://www.example-shop.com/products/limited-edition-thing",
+    "in_stock": {
+      "selector": "button#add-to-cart",
+      "expect_enabled": true,
+      "expect_visible": true,
+      "text_present": "Add to Cart",
+      "text_absent": "Sold Out",
+      "timeout_ms": 8000
+    }
+  },
+
+  "login": {
+    "enabled": false,
+    "url": "https://www.example-shop.com/account/login",
+    "steps": [
+      { "action": "fill", "selector": "#customer_email", "value": "${SHOP_EMAIL}", "description": "email" },
+      { "action": "fill", "selector": "#customer_password", "value": "${SHOP_PASSWORD}", "description": "password" },
+      { "action": "click", "selector": "button[type=submit]", "description": "sign in" },
+      { "action": "wait_for", "selector": "a[href*='logout']", "state": "attached", "description": "logged in" }
+    ]
+  },
+
+  "checkout_steps": [
+    { "action": "click", "selector": "button#add-to-cart", "description": "add to cart" },
+    { "action": "wait_ms", "value": 800 },
+    { "action": "goto", "url": "https://www.example-shop.com/checkout", "description": "open checkout" },
+
+    { "action": "fill", "selector": "#email", "value": "${SHOP_EMAIL}", "description": "contact email" },
+    { "action": "fill", "selector": "#shipping-first-name", "value": "${SHIP_FIRST_NAME}", "description": "first name" },
+    { "action": "fill", "selector": "#shipping-last-name", "value": "${SHIP_LAST_NAME}", "description": "last name" },
+    { "action": "fill", "selector": "#shipping-address1", "value": "${SHIP_ADDRESS1}", "description": "address" },
+    { "action": "fill", "selector": "#shipping-city", "value": "${SHIP_CITY}", "description": "city" },
+    { "action": "select", "selector": "#shipping-state", "value": "${SHIP_STATE}", "description": "state" },
+    { "action": "fill", "selector": "#shipping-zip", "value": "${SHIP_ZIP}", "description": "zip" },
+    { "action": "fill", "selector": "#shipping-phone", "value": "${SHIP_PHONE}", "description": "phone" },
+    { "action": "click", "selector": "button#continue-to-payment", "description": "continue to payment" },
+
+    { "action": "wait_for", "selector": "#card-number", "description": "payment form" },
+    { "action": "fill", "selector": "#card-number", "value": "${CARD_NUMBER}", "description": "card number" },
+    { "action": "fill", "selector": "#card-name", "value": "${CARD_NAME}", "description": "name on card" },
+    { "action": "fill", "selector": "#card-expiry", "value": "${CARD_EXPIRY}", "description": "expiry" },
+    { "action": "fill", "selector": "#card-cvc", "value": "${CARD_CVC}", "description": "cvc" },
+    { "action": "screenshot", "name": "review-order" },
+
+    { "action": "click", "selector": "button#place-order", "description": "PLACE ORDER", "final": true }
+  ],
+
+  "evasion": {
+    "proxies_file": "proxies.txt",
+    "proxies": [],
+    "sticky": true,
+    "sticky_session": true
+  },
+
+  "poll": {
+    "interval_seconds": 30,
+    "jitter_seconds": 15,
+    "max_attempts": 0
+  },
+
+  "schedule": {
+    "start_at": ""
+  },
+
+  "browser": {
+    "headless": false,
+    "slow_mo_ms": 0,
+    "keep_open": false,
+    "user_data_dir": "",
+    "viewport": { "width": 1280, "height": 900 }
+  },
+
+  "notifications": {
+    "discord_webhook": "${DISCORD_WEBHOOK:-}",
+    "desktop": true,
+    "sound": true,
+    "on": ["in_stock", "checkout_success", "error"]
+  },
+
+  "screenshots_dir": "screenshots",
+  "dry_run": true
+}
