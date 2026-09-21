@@ -317,10 +317,18 @@ _INIT_TEMPLATE = r"""
   // Real Chrome exposes these as enumerable getters (Navigator.prototype
   // .webdriver, Notification.permission) — enumerable:false would itself be
   // a mismatch, so def() matches the real descriptor shape.
+    // Every getter this script installs is routed through _maskFn too, so its
+  // toString() reads as native code rather than "() => val" - the
+  // classic getter-source leak detectors look for.
   const def = (obj, prop, val) => {
-    try { Object.defineProperty(obj, prop, { get: () => val, enumerable: true, configurable: true }); }
-    catch (e) {}
+    try {
+      Object.defineProperty(obj, prop, {
+        get: _maskFn(() => val, 'get ' + prop),
+        enumerable: true, configurable: true,
+      });
+    } catch (e) {}
   };
+
   // Automation tell — real Chrome exposes this as false, headless-automation as true.
   def(Navigator.prototype, 'webdriver', false);
   // Automation tell, confirmed live against raw Playwright with NO evasion at
@@ -342,6 +350,33 @@ _INIT_TEMPLATE = r"""
     if (!window.chrome) { window.chrome = {}; }
     if (!window.chrome.runtime) { window.chrome.runtime = {}; }
   } catch (e) {}
+    try {
+    if (!window.chrome) { window.chrome = {}; }
+    if (!window.chrome.runtime) { window.chrome.runtime = {}; }
+  } catch (e) {}
+  // window.chrome.csi and window.chrome.loadTimes exist on real Chrome and are
+  // classic automation probes. Real functions, masked toString - never plain
+  // objects, which is itself a tell.
+  try {
+    if (!window.chrome.csi) {
+      window.chrome.csi = _maskFn(function () {
+        return { startE: Date.now() - 300, onloadT: Date.now(), pageT: 400,
+                 tran: 15 };
+      }, 'csi');
+    }
+    if (!window.chrome.loadTimes) {
+      window.chrome.loadTimes = _maskFn(function () {
+        return { commitLoadTime: Date.now() / 1000, connectionInfo: 'h2',
+                 finishDocumentLoadTime: Date.now() / 1000 + 1,
+                 finishLoadTime: Date.now() / 1000 + 1,
+                 firstPaintAfterLoadTime: 0, firstPaintTime: Date.now() / 1000,
+                 navigationType: 'Other', npnNegotiatedProtocol: 'h2',
+                 requestTime: Date.now() / 1000 - 2, startLoadTime: Date.now() / 1000 - 2,
+                 wasAlternateProtocolAvailable: false, wasFetchedViaSpdy: true,
+                 wasNpnNegotiated: true };
+      }, 'loadTimes');
+    }
+  } catch (e) {}
   // Patched on Permissions.prototype (where the real one lives), not on the
   // instance — an own-property 'query' on navigator.permissions is itself a
   // tell. toString-masked like every other patch below.
@@ -357,7 +392,38 @@ _INIT_TEMPLATE = r"""
       }, 'query');
     }
   } catch (e) {}
-  try {
+  // --- codec spoof ------------------------------------------------------
+  // Headless/automation builds answer '' (or not at all) where real headed
+  // Chrome answers 'probably'/'maybe'. We first trust the REAL engine when
+  // it already knows (this whole tool runs headed real Chrome, so it usually
+  // does - which is what makes this patch invisible rather than a lie), and
+  // only fill in the classic answers real Chrome gives otherwise.
+  const _canPlay = HTMLMediaElement.prototype.canPlayType;
+  HTMLMediaElement.prototype.canPlayType = _maskFn(function (type) {
+    let t = '';
+    try { t = String(type).toLowerCase(); } catch (e) { t = ''; }
+    const real = _canPlay.call(this, t);
+    if (real) { return real; }
+    if (/h264|avc1|mp4a|aac\b/.test(t)) { return 'probably'; }
+    if (/mp3/.test(t)) { return 'probably'; }
+    if (/flac|opus|vorbis/.test(t)) { return 'probably'; }
+    if (/vp9|vp09/.test(t)) { return 'probably'; }
+    if (/vp8/.test(t)) { return 'maybe'; }
+    if (/webm/.test(t)) { return 'maybe'; }
+    if (/hls|dash/.test(t)) { return 'maybe'; }
+    return '';
+  }, 'canPlayType');
+  if (window.MediaSource && MediaSource.isTypeSupported) {
+    const _its = MediaSource.isTypeSupported;
+    MediaSource.isTypeSupported = _maskFn(function (type) {
+      const real = _its.call(MediaSource, type);
+      if (real) { return real; }
+      try { return /codecs=|avc1|mp4a|opus|vp09/.test(String(type).toLowerCase()); }
+      catch (e) { return false; }
+    }, 'isTypeSupported');
+  }
+
+    try {
     const patch = (proto) => {
       const gp = proto.getParameter;
       // Masked: an unmasked override's toString() leaks the patch source.
@@ -680,7 +746,10 @@ class FingerprintManager:
         # sec_ch_ua, say) comes out of repr-based templating as ""Windows"" — a
         # JS syntax error that silently kills the whole injected script, patches
         # and canvas noise together.
-        return _INIT_TEMPLATE.replace("__CFG__", json.dumps(cfg))
+        return (_INIT_TEMPLATE
+                .replace("__CFG__", json.dumps(cfg))
+                .replace("__HTMLCANARY__", ""))
+
 
     def describe(self, target: Optional[Any] = None) -> str:
         """One-line label for logs. Takes an account id, a profile, or nothing.

@@ -1,7 +1,5 @@
 # Backend automation
 playwright>=1.45
-playwright-stealth>=1.0.0
-
 # Desktop GUI
 nicegui>=1.4
 

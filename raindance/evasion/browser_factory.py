@@ -929,35 +929,24 @@ class BrowserFactory:
             return self.proxy_manager.get_proxy(account_id)
 
     def _apply_stealth(self, context, profile: Any = None) -> str:
-        """Inject the fingerprint-aligned script, then playwright-stealth.
+        """Inject the custom fingerprint script. This is the ONLY stealth layer.
 
-        Every step reports. Previously both arms ended in a bare `except: pass`,
-        so an uninstalled or renamed playwright-stealth left evasion_enabled
-        reporting True with nothing actually patched — a session that only looks
-        protected, and no way to tell. Returns a description of what was applied;
-        strict_evasion turns a failure into an EvasionError. `profile` is
-        handed to init_script() when that manager's signature accepts one.
-
-        The library step is skippable with use_stealth_lib=False: the init
-        script above it still runs, and the skip is reported as a note rather
-        than a NOT APPLIED, because a step you switched off is not a step that
-        failed. That flag is yours to set - this file never picks it for you,
-        and never inspects the driver to guess whether the library is wanted.
+        playwright-stealth is deliberately never applied: it ran second and
+        overwrote parts of this script's patches, leaks a well-known public
+        stealth signature of its own, and adds almost nothing on headed real
+        Chrome. The custom script is the single source of truth.
         """
         notes: List[str] = []
 
         script = ""
         if not hasattr(type(self.fingerprint_manager), "init_script"):
             notes.append("no init_script on this FingerprintManager")
-            script = ""
         else:
             try:
                 script = self._init_script(profile)
-            except Exception as exc:  # noqa: BLE001 - incl. AttributeError *inside*
+            except Exception as exc:  # noqa: BLE001 - incl. failures *inside*
                 return self._problem(
                     f"init_script raised {type(exc).__name__}: {exc}", exc)
-        if False:
-            pass
         if script:
             try:
                 context.add_init_script(script)
@@ -965,101 +954,8 @@ class BrowserFactory:
             except Exception as exc:  # noqa: BLE001
                 return self._problem(
                     f"add_init_script failed {type(exc).__name__}: {exc}", exc)
-
-        if not self.use_stealth_lib:
-            # OFF BY CONFIGURATION, not by failure. This must NOT go through
-            # _problem: the NOT APPLIED substring is how runner.py and the
-            # Evasion page report a session that is not patched, and the init
-            # script above it did run. Say plainly which step was skipped and
-            # why, so the log still tells the whole truth about the session.
-            notes.append("playwright-stealth step skipped by configuration "
-                         "(use_stealth_lib=False)")
-            return " \u00b7 ".join(notes)
-
-        try:
-            import playwright_stealth
-        except Exception as exc:  # noqa: BLE001 - a broken install raises non-ImportError
-            return self._problem(
-                "playwright-stealth is not installed "
-                "(pip install playwright-stealth)", exc, notes)
-
-        version = getattr(playwright_stealth, "__version__", "unknown")
-
-        stealth_cls = getattr(playwright_stealth, "Stealth", None)
-        if stealth_cls is not None:
-            # Align the library's own overrides to THIS profile. Its patches
-            # run after the init script above and, left at library defaults,
-            # replaced the profile's WebGL vendor/renderer, platform and
-            # languages with the library's ("Intel Inc." / "Win32" / en-US) -
-            # a second source of truth. Only the profile's existing values are
-            # passed through; a missing key is skipped, never invented, and a
-            # kwarg the installed version lacks is simply not sent. No
-            # profile (older manager / no-profile path) => Stealth() as before.
-            overrides: Dict[str, Any] = {}
-            if isinstance(profile, dict):
-                candidates = {
-                    "webgl_vendor_override": profile.get("webgl_vendor"),
-                    "webgl_renderer_override": profile.get("webgl_renderer"),
-                    "navigator_platform_override": profile.get("platform"),
-                    "navigator_languages_override": profile.get("languages"),
-                }
-                if candidates["navigator_languages_override"] is not None:
-                    candidates["navigator_languages_override"] = tuple(
-                        candidates["navigator_languages_override"])
-                try:
-                    accepted = set(
-                        inspect.signature(stealth_cls.__init__).parameters)
-                except (TypeError, ValueError):
-                    accepted = set()
-                overrides = {k: v for k, v in candidates.items()
-                             if v is not None and k in accepted}
-            try:
-                if overrides:
-                    try:
-                        stealth = stealth_cls(**overrides)
-                        notes.append(
-                            "playwright-stealth aligned to profile ("
-                            + ", ".join(sorted(overrides)) + ")")
-                    except Exception as exc:  # noqa: BLE001 - kwarg drift
-                        # The library still applies; only the alignment is lost.
-                        notes.append(
-                            f"playwright-stealth profile alignment failed "
-                            f"{type(exc).__name__}: {exc}; ran with library "
-                            f"defaults")
-                        stealth = stealth_cls()
-                else:
-                    stealth = stealth_cls()
-                    notes.append("playwright-stealth ran with library defaults "
-                                 "(no profile overrides)")
-                fn = getattr(stealth, "apply_stealth_sync", None)
-            except Exception as exc:  # noqa: BLE001 - constructor signature drift
-                return self._problem(
-                    f"Stealth() could not be constructed "
-                    f"{type(exc).__name__}: {exc}", exc, notes)
-            if fn is not None:
-                try:
-                    fn(context)
-                except Exception as exc:  # noqa: BLE001
-                    return self._problem(
-                        f"Stealth().apply_stealth_sync failed "
-                        f"{type(exc).__name__}: {exc}", exc, notes)
-                notes.append(f"Stealth().apply_stealth_sync(context) "
-                             f"[playwright-stealth {version}]")
-                return " \u00b7 ".join(notes)
-
-        legacy = getattr(playwright_stealth, "stealth_sync", None)
-        if legacy is not None:
-            try:
-                legacy(context)
-            except Exception as exc:  # noqa: BLE001
-                return self._problem(
-                    f"stealth_sync failed {type(exc).__name__}: {exc}", exc, notes)
-            notes.append(f"stealth_sync(context) [playwright-stealth {version}]")
-            return " \u00b7 ".join(notes)
-
-        return self._problem(
-            f"playwright-stealth {version} exposes no known entrypoint "
-            "(looked for Stealth and stealth_sync)", None, notes)
+        notes.append("custom stealth only (playwright-stealth disabled)")
+        return " \u00b7 ".join(notes)
 
     def _init_script(self, profile: Any) -> str:
         """init_script(profile) on a manager that takes one, else init_script().
